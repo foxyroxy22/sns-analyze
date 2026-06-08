@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>SNS ANALYZE — Design Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --yellow: #FFEE00;
+    --blue: #0033FF;
+    --black: #0A0A0A;
+    --white: #F5F5F0;
+    --gray: #1A1A1A;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: -0.05em;
+    max-width: 390px;
+    margin: 0 auto;
+    padding: 0 0 80px;
+  }
+
+  /* SECTION HEADER */
+  .section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--yellow);
+    text-transform: uppercase;
+    padding: 32px 20px 8px;
+  }
+
+  .divider { border: none; border-top: 2px solid #222; }
+
+  /* ── BUTTONS ── */
+  .section { padding: 0 20px 24px; }
+
+  .btn-primary {
+    display: block;
+    width: 100%;
+    background: var(--yellow);
+    color: var(--black);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 0;
+    padding: 16px 20px;
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+
+  .btn-outline {
+    display: block;
+    width: 100%;
+    background: transparent;
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid var(--white);
+    border-radius: 0;
+    padding: 14px 20px;
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+
+  .btn-blue {
+    display: block;
+    width: 100%;
+    background: var(--blue);
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 0;
+    padding: 16px 20px;
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+
+  .btn-ghost {
+    display: inline-block;
+    background: transparent;
+    color: var(--yellow);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid var(--yellow);
+    border-radius: 0;
+    padding: 10px 20px;
+    cursor: pointer;
+    margin-right: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* ── STAT CARD ── */
+  .stat-card {
+    background: var(--gray);
+    border: 1px solid #333;
+    border-radius: 0;
+    padding: 20px;
+    margin-bottom: 8px;
+  }
+
+  .stat-label {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 42px;
+    font-weight: 500;
+    color: var(--yellow);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .stat-delta {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #44ff88;
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+  }
+
+  /* ── TAB BAR ── */
+  .tabbar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 390px;
+    background: var(--black);
+    border-top: 1px solid var(--yellow);
+    display: flex;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 14px 0 20px;
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #555;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .tab.active {
+    color: var(--black);
+    background: var(--yellow);
+  }
+
+  .tab-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  /* ── INPUT ── */
+  .input-field {
+    width: 100%;
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 0;
+    color: var(--white);
+    font-family: 'Pretendard', sans-serif;
+    font-size: 16px;
+    letter-spacing: -0.05em;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    outline: none;
+  }
+
+  .input-field:focus { border-color: var(--yellow); }
+  .input-field::placeholder { color: #444; }
+
+  /* ── CHIP / TAG ── */
+  .chip {
+    display: inline-block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border: 1px solid #333;
+    border-radius: 0;
+    color: #888;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+
+  .chip.active {
+    background: var(--yellow);
+    color: var(--black);
+    border-color: var(--yellow);
+  }
+
+  /* ── PAGE TITLE ── */
+  .page-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 52px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 0.92;
+    padding: 24px 20px 20px;
+    border-bottom: 2px solid #222;
+  }
+
+  .page-title span { color: var(--yellow); }
+
+  /* ── TOAST ── */
+  .toast {
+    background: var(--yellow);
+    color: var(--black);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 14px 20px;
+    border-radius: 0;
+    margin: 0 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toast.error {
+    background: transparent;
+    color: #ff4444;
+    border: 1px solid #ff4444;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- PAGE TITLE -->
+<div class="page-title">SNS<br><span>ANALYZE</span></div>
+
+<!-- BUTTONS -->
+<div class="section-label">버튼 컴포넌트</div>
+<hr class="divider">
+<div class="section" style="padding-top:16px">
+  <button class="btn-primary">분석 시작 →</button>
+  <button class="btn-blue">인스타그램 연동</button>
+  <button class="btn-outline">리포트 보기</button>
+  <div>
+    <button class="btn-ghost">30일</button>
+    <button class="btn-ghost" style="background:var(--yellow);color:var(--black)">7일</button>
+    <button class="btn-ghost">90일</button>
+  </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="section-label">통계 카드</div>
+<hr class="divider">
+<div class="section" style="padding-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+  <div class="stat-card">
+    <div class="stat-label">팔로워</div>
+    <div class="stat-value">24.1K</div>
+    <div class="stat-delta">▲ +312</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">구독자</div>
+    <div class="stat-value">8.9K</div>
+    <div class="stat-delta">▲ +89</div>
+  </div>
+  <div class="stat-card" style="border-color:var(--blue)">
+    <div class="stat-label">참여율</div>
+    <div class="stat-value" style="font-size:36px">4.7%</div>
+    <div class="stat-delta" style="color:#888">평균 대비</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">조회수</div>
+    <div class="stat-value" style="font-size:32px; color:var(--white)">102K</div>
+    <div class="stat-delta" style="color:#ff4444">▼ -5%</div>
+  </div>
+</div>
+
+<!-- INPUT -->
+<div class="section-label">인풋 / 검색</div>
+<hr class="divider">
+<div class="section" style="padding-top:16px">
+  <input class="input-field" placeholder="@계정명 검색" type="text">
+  <button class="btn-primary">검색 →</button>
+</div>
+
+<!-- CHIPS -->
+<div class="section-label">필터 칩</div>
+<hr class="divider">
+<div class="section" style="padding-top:16px">
+  <span class="chip active">전체</span>
+  <span class="chip">릴스</span>
+  <span class="chip">피드</span>
+  <span class="chip">쇼츠</span>
+  <span class="chip">영상</span>
+</div>
+
+<!-- TOAST -->
+<div class="section-label">토스트 메시지</div>
+<hr class="divider">
+<div style="padding-top:16px; margin-bottom:8px">
+  <div class="toast">API 연동 완료! ✓</div>
+  <div class="toast error">API 할당량 초과 — 캐시 데이터 표시 중</div>
+</div>
+
+<!-- TAB BAR -->
+<nav class="tabbar">
+  <button class="tab active">
+    <span class="tab-icon">◼</span>DASH
+  </button>
+  <button class="tab">
+    <span class="tab-icon">◻</span>INSTA
+  </button>
+  <button class="tab">
+    <span class="tab-icon">◻</span>YT
+  </button>
+  <button class="tab">
+    <span class="tab-icon">◻</span>비교
+  </button>
+  <button class="tab">
+    <span class="tab-icon">◻</span>리포트
+  </button>
+</nav>
+
+</body>
+</html>
