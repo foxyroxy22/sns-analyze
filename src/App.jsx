@@ -10,7 +10,7 @@ import Settings      from './pages/Settings'
 
 export default function App() {
   return (
-    <BrowserRouter basename="/SNS-ANALYZE">
+    <BrowserRouter basename="/sns-analyze">
       <div style={{ paddingBottom: 80 }}>
         <SettingsButton />
         <Routes>
