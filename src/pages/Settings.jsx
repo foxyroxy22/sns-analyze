@@ -7,12 +7,14 @@ export default function Settings() {
   const navigate = useNavigate()
   const [ytKey, setYtKey]         = useState(localStorage.getItem('yt_api_key') || '')
   const [igToken, setIgToken]     = useState(localStorage.getItem('ig_access_token') || '')
+  const [igAccountId, setIgAccountId] = useState(localStorage.getItem('ig_account_id') || '')
   const [ytChannelId, setYtChannelId] = useState(localStorage.getItem('yt_channel_id') || '')
   const [toast, setToast]         = useState(null)
 
   function save() {
     localStorage.setItem('yt_api_key', ytKey.trim())
     localStorage.setItem('ig_access_token', igToken.trim())
+    localStorage.setItem('ig_account_id', igAccountId.trim())
     localStorage.setItem('yt_channel_id', ytChannelId.trim())
     setToast({ message: '저장 완료!', type: 'success' })
     setTimeout(() => navigate('/'), 1500)
@@ -75,16 +77,24 @@ export default function Settings() {
 
         <div style={{ paddingBottom: 24 }}>
           <div className="heading-en text-xl mb-3" style={{ color: '#0033FF' }}>INSTAGRAM</div>
+          <label style={labelStyle}>Instagram Business Account ID</label>
+          <input
+            style={inputStyle}
+            value={igAccountId}
+            onChange={e => setIgAccountId(e.target.value)}
+            placeholder="17자리 숫자 ID 입력"
+            spellCheck={false}
+          />
           <label style={labelStyle}>User Access Token</label>
           <input
             style={inputStyle}
             value={igToken}
             onChange={e => setIgToken(e.target.value)}
-            placeholder="IGQVJ..."
+            placeholder="EAAv..."
             spellCheck={false}
           />
           <p style={{ fontFamily: 'Pretendard', fontSize: 12, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.05em', lineHeight: 1.6 }}>
-            Facebook Developer Console → Instagram Graph API → 크리에이터/비즈니스 계정 필요
+            Meta Developer Console → Graph API Explorer → instagram_business_account ID + EAAv... 토큰 필요
           </p>
         </div>
 
