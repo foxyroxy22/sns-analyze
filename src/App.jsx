@@ -4,7 +4,7 @@ import SettingsButton from './components/SettingsButton'
 import Dashboard     from './pages/Dashboard'
 import InstagramPage from './pages/InstagramPage'
 import YouTubePage   from './pages/YouTubePage'
-import ComparePage   from './pages/ComparePage'
+import AnalyzePage   from './pages/AnalyzePage'
 import ReportPage    from './pages/ReportPage'
 import Settings      from './pages/Settings'
 
@@ -17,7 +17,7 @@ export default function App() {
           <Route path="/"          element={<Dashboard />} />
           <Route path="/instagram" element={<InstagramPage />} />
           <Route path="/youtube"   element={<YouTubePage />} />
-          <Route path="/compare"   element={<ComparePage />} />
+          <Route path="/analyze"   element={<AnalyzePage />} />
           <Route path="/report"    element={<ReportPage />} />
           <Route path="/settings"  element={<Settings />} />
         </Routes>

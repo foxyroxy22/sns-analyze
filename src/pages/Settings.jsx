@@ -9,6 +9,7 @@ export default function Settings() {
   const [igToken, setIgToken]     = useState(localStorage.getItem('ig_access_token') || '')
   const [igAccountId, setIgAccountId] = useState(localStorage.getItem('ig_account_id') || '')
   const [ytChannelId, setYtChannelId] = useState(localStorage.getItem('yt_channel_id') || '')
+  const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key') || '')
   const [toast, setToast]         = useState(null)
 
   function save() {
@@ -16,6 +17,7 @@ export default function Settings() {
     localStorage.setItem('ig_access_token', igToken.trim())
     localStorage.setItem('ig_account_id', igAccountId.trim())
     localStorage.setItem('yt_channel_id', ytChannelId.trim())
+    localStorage.setItem('gemini_api_key', geminiKey.trim())
     setToast({ message: '저장 완료!', type: 'success' })
     setTimeout(() => navigate('/'), 1500)
   }
@@ -95,6 +97,21 @@ export default function Settings() {
           />
           <p style={{ fontFamily: 'Pretendard', fontSize: 12, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.05em', lineHeight: 1.6 }}>
             Meta Developer Console → Graph API Explorer → instagram_business_account ID + EAAv... 토큰 필요
+          </p>
+        </div>
+
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 24, marginTop: 8, paddingBottom: 24 }}>
+          <div className="heading-en text-xl mb-3" style={{ color: '#FFEE00' }}>GEMINI AI</div>
+          <label style={labelStyle}>Gemini API Key</label>
+          <input
+            style={inputStyle}
+            value={geminiKey}
+            onChange={e => setGeminiKey(e.target.value)}
+            placeholder="AIza..."
+            spellCheck={false}
+          />
+          <p style={{ fontFamily: 'Pretendard', fontSize: 12, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.05em', lineHeight: 1.6 }}>
+            Google AI Studio (aistudio.google.com) → Get API Key → 분석 탭에서 사용
           </p>
         </div>
 
