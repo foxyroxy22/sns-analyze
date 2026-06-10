@@ -218,7 +218,7 @@ ${commentsText}
 }
 
 // ── 주간 브랜딩 루틴 생성 ─────────────────────────────────────────────────────
-export async function getWeeklyRoutine({ igProfile, recentMedia, onProgress }) {
+export async function getWeeklyRoutine({ igProfile, recentMedia, confirmedRefs, onProgress }) {
   const key = apiKey()
   if (!key) throw new Error('NO_GEMINI_KEY')
 
@@ -240,22 +240,48 @@ export async function getWeeklyRoutine({ igProfile, recentMedia, onProgress }) {
     ? `팔로워: ${igProfile.followers_count ?? '-'} / 게시물 수: ${igProfile.media_count ?? '-'}`
     : '(계정 데이터 없음)'
 
+  let refsText = '(저장된 레퍼런스 없음)'
+  if (confirmedRefs?.length) {
+    refsText = confirmedRefs.map((r, i) => {
+      const parts = [`${i + 1}. ${r.memo || r.text || '(메모 없음)'}`]
+      if (r.url) parts.push(`   링크: ${r.url}`)
+      return parts.join('\n')
+    }).join('\n')
+  }
+
   const systemInstruction = `너는 인스타그램 전문 BX 디자이너이자 실행력 있는 콘텐츠 코치야.
-사용자의 계정 데이터를 바탕으로 이번 주 월~일까지 7일간 바로 실행 가능한 요일별 콘텐츠 행동 루틴을 만들어줘.
-추상적인 말 금지. 당장 오늘부터 따라할 수 있는 구체적인 행동으로만 작성해.
+사용자의 계정 데이터와 컨펌된 레퍼런스를 바탕으로, 이번 주 월~일 7일간 즉시 실행 가능한 요일별 콘텐츠 루틴을 만들어줘.
+
+━━━ 반드시 지켜야 할 2가지 핵심 규칙 ━━━
+
+[규칙 ①] 미감 중심 비주얼 캐러셀 주 1회 필수 포함
+- 정보성·설명형 카드뉴스는 절대 제안 금지.
+- 대신 "와, 이 사람 미감 좋다, 힙하다" 는 시각적 감탄이 나오는 비주얼 캐러셀 피드를 반드시 주 1회 이상 스케줄에 넣어.
+- 이 캐러셀은 반드시 사용자가 컨펌한 레퍼런스 무드(키치, 비비드, 그래픽 오브제, 별, 감각적 타이포그래피 레이아웃 등)를 기반으로 매칭해서 제안해.
+- 캐러셀 타입은 반드시 "비주얼캐러셀"로 표기해.
+
+[규칙 ②] 회사 생활 브이로그 릴스 화면/자막 분리 출력
+- 릴스 루틴은 반드시 [화면]과 [자막] 필드를 분리해서 출력해.
+- 화면: 매일 반복되는 출근·작업·회사 일상·디자인 업무 장면(브이로그 소스)
+- 자막: 화면을 설명하지 말고, 디자이너로서의 진솔한 생각·브랜딩 인사이트·솔직한 고민·마인드셋을 요즘 인스타 트렌드 스타일로 매일 다르게.
+  예) "내가 뛰어난 디자이너들 사이에서 주눅 들지 않고 내 색깔을 지키는 법"
+
+추상적인 말 금지. 당장 오늘부터 따라할 수 있는 구체적 행동만.
 
 결과는 반드시 아래 JSON 형식으로만 반환해:
 {
   "weekSummary": "이번 주 계정 상태 총평 (2문장)",
   "weekTheme": "이번 주 통일 테마 한 줄",
   "routine": [
-    { "day": "월", "type": "릴스/스토리/피드/휴식 중 하나", "action": "구체적인 행동 (예: Y2K 무드 셀카 릴스 업로드 — 배경음악 OOO 추천)", "tip": "실행 팁 한 문장" },
-    { "day": "화", "type": "...", "action": "...", "tip": "..." },
-    { "day": "수", "type": "...", "action": "...", "tip": "..." },
-    { "day": "목", "type": "...", "action": "...", "tip": "..." },
-    { "day": "금", "type": "...", "action": "...", "tip": "..." },
-    { "day": "토", "type": "...", "action": "...", "tip": "..." },
-    { "day": "일", "type": "...", "action": "...", "tip": "..." }
+    {
+      "day": "월",
+      "type": "릴스 또는 비주얼캐러셀 또는 스토리 또는 피드 또는 휴식",
+      "action": "구체적 행동 설명",
+      "screen": "릴스일 때만: 화면 소스 설명 (예: 출근길 카페 들르는 장면 브이로그)",
+      "caption": "릴스일 때만: 자막/나레이션 컨셉 (예: 내가 디자인에서 '힙함'보다 '나다움'을 선택한 이유)",
+      "refMatch": "비주얼캐러셀일 때만: 참고한 레퍼런스와 매칭 포인트",
+      "tip": "실행 팁 한 문장"
+    }
   ],
   "mustDo": ["이번 주 반드시 할 것1", "할 것2"],
   "mustAvoid": ["이번 주 절대 피할 것1", "피할 것2"]
@@ -270,7 +296,11 @@ ${igSummary}
 [최근 게시물 10개]
 ${mediaText}
 
-위 데이터를 분석해서 이번 주 요일별 콘텐츠 루틴을 JSON으로 만들어줘.`
+[컨펌된 레퍼런스 보관함]
+${refsText}
+
+위 데이터를 분석해서 이번 주 요일별 콘텐츠 루틴을 JSON으로 만들어줘.
+규칙①(비주얼 캐러셀 주1회)과 규칙②(릴스 화면/자막 분리)를 반드시 지켜줘.`
 
   onProgress?.('Gemini 루틴 생성 중...')
 
@@ -281,4 +311,13 @@ ${mediaText}
   } catch {
     return { raw: text }
   }
+}
+
+// ── 레퍼런스 보관함 localStorage 헬퍼 ────────────────────────────────────────
+export function getConfirmedRefs() {
+  try { return JSON.parse(localStorage.getItem('confirmed_refs') || '[]') } catch { return [] }
+}
+
+export function saveConfirmedRefs(refs) {
+  localStorage.setItem('confirmed_refs', JSON.stringify(refs))
 }

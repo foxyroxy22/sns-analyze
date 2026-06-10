@@ -2,7 +2,13 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import Toast from '../components/Toast'
-import { analyzeContent, getWeeklyRoutine, getAccountProfile } from '../services/gemini'
+import {
+  analyzeContent,
+  getWeeklyRoutine,
+  getAccountProfile,
+  getConfirmedRefs,
+  saveConfirmedRefs,
+} from '../services/gemini'
 import { fetchIGProfile, fetchIGMedia } from '../services/instagram'
 
 // ─── 공통 스타일 ─────────────────────────────────────────────────────────────
@@ -28,7 +34,6 @@ const S = {
     color: 'rgba(255,255,255,0.28)',
     letterSpacing: '-0.05em',
     lineHeight: 1.6,
-    marginTop: 6,
   },
 }
 
@@ -46,7 +51,9 @@ const DAY_COLORS = {
   금: '#FFEE00', 토: '#F5F5F0', 일: '#F5F5F0',
 }
 
-const TYPE_ICONS = { '릴스': '▶', '스토리': '◎', '피드': '◼', '휴식': '○' }
+const TYPE_ICONS = {
+  릴스: '▶', 비주얼캐러셀: '◼', 스토리: '◎', 피드: '◻', 휴식: '○',
+}
 
 // ─── 탭 버튼 ─────────────────────────────────────────────────────────────────
 function TabBtn({ label, active, onClick }) {
@@ -57,13 +64,13 @@ function TabBtn({ label, active, onClick }) {
         flex: 1,
         fontFamily: 'Barlow Condensed',
         fontWeight: 800,
-        fontSize: 13,
+        fontSize: 12,
         textTransform: 'uppercase',
         letterSpacing: '0.08em',
         background: active ? '#FFEE00' : 'transparent',
         color: active ? '#0A0A0A' : 'rgba(255,255,255,0.35)',
         border: '1px solid rgba(255,255,255,0.12)',
-        padding: '11px 6px',
+        padding: '10px 4px',
         cursor: 'pointer',
         transition: 'all 0.1s',
       }}
@@ -75,8 +82,8 @@ function TabBtn({ label, active, onClick }) {
 
 // ─── 계정 프로필 배너 ─────────────────────────────────────────────────────────
 function ProfileBanner() {
-  const navigate = useNavigate()
-  const profile  = getAccountProfile()
+  const navigate  = useNavigate()
+  const profile   = getAccountProfile()
   const hasProfile = !!(profile.concept || profile.target || profile.visual)
 
   return (
@@ -93,46 +100,188 @@ function ProfileBanner() {
         cursor: 'pointer',
       }}
     >
-      <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>{hasProfile ? '◈' : '○'}</span>
+      <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{hasProfile ? '◈' : '○'}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'Barlow Condensed', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: hasProfile ? '#FFEE00' : 'rgba(255,255,255,0.3)', marginBottom: 3 }}>
           MY ACCOUNT PROFILE {hasProfile ? '· 설정됨' : '· 미설정'}
         </div>
         <div style={{ fontFamily: 'Pretendard', fontSize: 12, color: hasProfile ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.25)', letterSpacing: '-0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {hasProfile ? (profile.concept || profile.visual || profile.target) : '설정 탭에서 계정 프로필을 입력하면 맞춤 분석을 받을 수 있어요 →'}
+          {hasProfile ? (profile.concept || profile.visual || profile.target) : '설정에서 계정 프로필을 입력하면 맞춤 분석을 받을 수 있어요 →'}
         </div>
       </div>
-      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'rgba(255,255,255,0.2)', flexShrink: 0, marginTop: 2 }}>편집</span>
+      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>편집</span>
     </div>
   )
 }
 
-// ─── 큰 버튼 ─────────────────────────────────────────────────────────────────
-function BigBtn({ onClick, disabled, loading, progress, label }) {
+// ─── 컨펌된 레퍼런스 보관함 ───────────────────────────────────────────────────
+function ReferenceVault({ refs, onChange }) {
+  const [memo,  setMemo]  = useState('')
+  const [url,   setUrl]   = useState('')
+  const [open,  setOpen]  = useState(false)
+
+  function addRef() {
+    if (!memo.trim() && !url.trim()) return
+    const next = [
+      ...refs,
+      { id: Date.now(), memo: memo.trim(), url: url.trim(), date: new Date().toLocaleDateString('ko-KR') },
+    ]
+    saveConfirmedRefs(next)
+    onChange(next)
+    setMemo('')
+    setUrl('')
+    setOpen(false)
+  }
+
+  function removeRef(id) {
+    const next = refs.filter(r => r.id !== id)
+    saveConfirmedRefs(next)
+    onChange(next)
+  }
+
+  const inp = {
+    width: '100%',
+    background: 'transparent',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#F5F5F0',
+    fontFamily: 'Pretendard',
+    fontSize: 13,
+    padding: '10px 12px',
+    outline: 'none',
+    letterSpacing: '-0.05em',
+    marginBottom: 6,
+    display: 'block',
+  }
+
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled || loading}
-      style={{
-        width: '100%',
-        background: !disabled && !loading ? '#FFEE00' : '#1A1A1A',
-        color: !disabled && !loading ? '#0A0A0A' : 'rgba(255,255,255,0.2)',
-        fontFamily: 'Barlow Condensed',
-        fontWeight: 800,
-        fontSize: 19,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        border: 'none',
-        padding: '18px 20px',
-        cursor: !disabled && !loading ? 'pointer' : 'not-allowed',
-      }}
-    >
-      {loading ? (progress || '분석 중...') : label}
-    </button>
+    <div style={{ marginBottom: 20 }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ ...S.secLabel, marginBottom: 0 }}>
+          CONFIRMED REFERENCES
+          {refs.length > 0 && (
+            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: '#FFEE00', marginLeft: 8 }}>
+              {refs.length}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setOpen(v => !v)}
+          style={{
+            fontFamily: 'Barlow Condensed',
+            fontWeight: 700,
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            background: open ? '#FFEE00' : 'transparent',
+            color: open ? '#0A0A0A' : 'rgba(255,255,255,0.4)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            padding: '5px 10px',
+            cursor: 'pointer',
+          }}
+        >
+          {open ? '접기' : '+ 추가'}
+        </button>
+      </div>
+
+      {/* 추가 폼 */}
+      {open && (
+        <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', padding: '14px', marginBottom: 8 }}>
+          <div style={{ fontFamily: 'Pretendard', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '-0.05em', marginBottom: 8 }}>
+            힙하다고 느낀 레퍼런스, 비주얼 무드, 아이디어를 저장해요
+          </div>
+          <textarea
+            style={{ ...inp, resize: 'none', minHeight: 64, lineHeight: 1.55 }}
+            value={memo}
+            onChange={e => setMemo(e.target.value)}
+            placeholder="예: 비비드 컬러 + 별 오브제 활용한 캐러셀. 텍스처 강조, Y2K 무드"
+          />
+          <input
+            style={inp}
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="레퍼런스 링크 (선택)"
+            type="url"
+          />
+          <button
+            onClick={addRef}
+            disabled={!memo.trim() && !url.trim()}
+            style={{
+              width: '100%',
+              background: (memo.trim() || url.trim()) ? '#FFEE00' : '#222',
+              color: (memo.trim() || url.trim()) ? '#0A0A0A' : 'rgba(255,255,255,0.2)',
+              fontFamily: 'Barlow Condensed',
+              fontWeight: 800,
+              fontSize: 14,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              border: 'none',
+              padding: '11px',
+              cursor: (memo.trim() || url.trim()) ? 'pointer' : 'not-allowed',
+            }}
+          >
+            CONFIRM & SAVE →
+          </button>
+        </div>
+      )}
+
+      {/* 저장된 레퍼런스 목록 */}
+      {refs.length === 0 ? (
+        <div style={{ border: '1px dashed rgba(255,255,255,0.1)', padding: '18px 14px', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Pretendard', fontSize: 12, color: 'rgba(255,255,255,0.2)', letterSpacing: '-0.05em', lineHeight: 1.6 }}>
+            컨펌된 레퍼런스가 없어요<br />
+            힙하다 싶은 비주얼·아이디어를 저장하면<br />
+            루틴 생성에 반영돼요
+          </div>
+        </div>
+      ) : (
+        <div>
+          {refs.map((r) => (
+            <div
+              key={r.id}
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                padding: '10px 0',
+              }}
+            >
+              <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: '#FFEE00', flexShrink: 0, paddingTop: 3 }}>✓</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {r.memo && (
+                  <p style={{ fontFamily: 'Pretendard', fontSize: 13, color: '#F5F5F0', letterSpacing: '-0.05em', lineHeight: 1.55, margin: '0 0 3px' }}>
+                    {r.memo}
+                  </p>
+                )}
+                {r.url && (
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: '#0033FF', wordBreak: 'break-all' }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {r.url}
+                  </a>
+                )}
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'rgba(255,255,255,0.2)', marginTop: 4 }}>{r.date}</div>
+              </div>
+              <button
+                onClick={() => removeRef(r.id)}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', fontSize: 14, cursor: 'pointer', flexShrink: 0, padding: '0 4px' }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
-// ─── 루틴 결과 ───────────────────────────────────────────────────────────────
+// ─── 루틴 결과 카드 ───────────────────────────────────────────────────────────
 function RoutineResult({ result }) {
   if (result.raw) {
     return (
@@ -156,53 +305,117 @@ function RoutineResult({ result }) {
       {result.weekTheme && (
         <div style={{ background: '#FFEE00', padding: '14px 16px', marginBottom: 2 }}>
           <div style={{ fontFamily: 'Barlow Condensed', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(0,0,0,0.4)', marginBottom: 4 }}>WEEKLY THEME</div>
-          <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 800, fontSize: 22, color: '#0A0A0A', letterSpacing: '0.02em', lineHeight: 1.2 }}>
+          <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 800, fontSize: 20, color: '#0A0A0A', lineHeight: 1.2 }}>
             {result.weekTheme}
           </div>
         </div>
       )}
 
-      {/* 요일별 루틴 카드 */}
+      {/* 요일 카드 */}
       {result.routine?.length > 0 && (
-        <div style={{ marginBottom: 2 }}>
-          <div style={{ ...S.secLabel, marginTop: 14, marginBottom: 8 }}>WEEKLY ROUTINE</div>
+        <div style={{ marginTop: 2 }}>
+          <div style={{ ...S.secLabel, marginTop: 12, marginBottom: 8 }}>WEEKLY ROUTINE</div>
           {result.routine.map((r, i) => {
-            const dayColor  = DAY_COLORS[r.day] || '#F5F5F0'
-            const typeIcon  = TYPE_ICONS[r.type] || '◇'
             const isRest    = r.type === '휴식'
+            const isReels   = r.type === '릴스'
+            const isCarousel = r.type === '비주얼캐러셀'
+            const dayColor  = isRest ? 'rgba(255,255,255,0.15)' : DAY_COLORS[r.day] || '#F5F5F0'
+            const typeIcon  = TYPE_ICONS[r.type] || '◇'
 
             return (
               <div
                 key={i}
                 style={{
-                  display: 'flex',
-                  gap: 0,
                   marginBottom: 2,
-                  border: `1px solid ${isRest ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)'}`,
-                  background: isRest ? '#0A0A0A' : '#0D0D0D',
+                  border: isCarousel
+                    ? '1px solid rgba(255,238,0,0.35)'
+                    : `1px solid ${isRest ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)'}`,
+                  background: isCarousel ? 'rgba(255,238,0,0.04)' : isRest ? '#0A0A0A' : '#0D0D0D',
                   overflow: 'hidden',
                 }}
               >
-                {/* 요일 */}
-                <div style={{ width: 44, flexShrink: 0, background: isRest ? 'transparent' : dayColor, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '14px 0' }}>
-                  <span style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 18, color: isRest ? 'rgba(255,255,255,0.2)' : '#0A0A0A', lineHeight: 1 }}>{r.day}</span>
-                  <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 14, color: isRest ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.5)', marginTop: 3 }}>{typeIcon}</span>
-                </div>
-                {/* 내용 */}
-                <div style={{ flex: 1, padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                    <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: isRest ? 'rgba(255,255,255,0.2)' : dayColor, background: isRest ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.18)', padding: '2px 7px' }}>
-                      {r.type}
-                    </span>
+                <div style={{ display: 'flex' }}>
+                  {/* 요일 컬럼 */}
+                  <div style={{
+                    width: 44,
+                    flexShrink: 0,
+                    background: isRest ? 'transparent' : dayColor,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '14px 0',
+                  }}>
+                    <span style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 18, color: isRest ? 'rgba(255,255,255,0.15)' : '#0A0A0A', lineHeight: 1 }}>{r.day}</span>
+                    <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 13, color: isRest ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.45)', marginTop: 3 }}>{typeIcon}</span>
                   </div>
-                  <p style={{ fontFamily: 'Pretendard', fontSize: 13, color: isRest ? 'rgba(255,255,255,0.28)' : '#F5F5F0', letterSpacing: '-0.05em', lineHeight: 1.55, margin: '0 0 5px' }}>
-                    {r.action}
-                  </p>
-                  {r.tip && (
-                    <p style={{ fontFamily: 'Pretendard', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '-0.05em', lineHeight: 1.5, margin: 0 }}>
-                      💡 {r.tip}
+
+                  {/* 내용 */}
+                  <div style={{ flex: 1, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <span style={{
+                        fontFamily: 'IBM Plex Mono',
+                        fontSize: 9,
+                        color: isCarousel ? '#0A0A0A' : isRest ? 'rgba(255,255,255,0.2)' : dayColor,
+                        background: isCarousel ? '#FFEE00' : isRest ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.2)',
+                        padding: '2px 7px',
+                      }}>
+                        {r.type}
+                      </span>
+                      {isCarousel && (
+                        <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: '#FFEE00' }}>★ 비주얼 피드</span>
+                      )}
+                    </div>
+
+                    <p style={{ fontFamily: 'Pretendard', fontSize: 13, color: isRest ? 'rgba(255,255,255,0.25)' : '#F5F5F0', letterSpacing: '-0.05em', lineHeight: 1.55, margin: '0 0 6px' }}>
+                      {r.action}
                     </p>
-                  )}
+
+                    {/* 릴스: 화면 / 자막 분리 */}
+                    {isReels && (r.screen || r.caption) && (
+                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 8, marginTop: 4 }}>
+                        {r.screen && (
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontFamily: 'Barlow Condensed', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.3)', marginBottom: 3 }}>
+                              📷 화면 소스
+                            </div>
+                            <p style={{ fontFamily: 'Pretendard', fontSize: 12, color: 'rgba(255,255,255,0.55)', letterSpacing: '-0.05em', lineHeight: 1.5, margin: 0 }}>
+                              {r.screen}
+                            </p>
+                          </div>
+                        )}
+                        {r.caption && (
+                          <div>
+                            <div style={{ fontFamily: 'Barlow Condensed', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#FFEE00', marginBottom: 3 }}>
+                              💬 자막 / 나레이션
+                            </div>
+                            <p style={{ fontFamily: 'Pretendard', fontSize: 12, color: '#FFEE00', letterSpacing: '-0.05em', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                              "{r.caption}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 비주얼캐러셀: 레퍼런스 매칭 */}
+                    {isCarousel && r.refMatch && (
+                      <div style={{ borderTop: '1px solid rgba(255,238,0,0.15)', paddingTop: 8, marginTop: 4 }}>
+                        <div style={{ fontFamily: 'Barlow Condensed', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,238,0,0.6)', marginBottom: 3 }}>
+                          ◈ 레퍼런스 매칭
+                        </div>
+                        <p style={{ fontFamily: 'Pretendard', fontSize: 12, color: 'rgba(255,238,0,0.8)', letterSpacing: '-0.05em', lineHeight: 1.5, margin: 0 }}>
+                          {r.refMatch}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 팁 */}
+                    {r.tip && (
+                      <p style={{ fontFamily: 'Pretendard', fontSize: 11, color: 'rgba(255,255,255,0.32)', letterSpacing: '-0.05em', lineHeight: 1.5, margin: '6px 0 0' }}>
+                        💡 {r.tip}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -210,20 +423,18 @@ function RoutineResult({ result }) {
         </div>
       )}
 
-      {/* 반드시 할 것 / 피할 것 */}
+      {/* MUST DO / AVOID */}
       {(result.mustDo?.length > 0 || result.mustAvoid?.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, marginBottom: 2, marginTop: 2 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, marginTop: 2 }}>
           {result.mustDo?.length > 0 && (
-            <div style={{ ...S.card, margin: 0 }}>
-              <div style={{ ...S.secLabel, color: '#FFEE00' }}>MUST DO</div>
+            <RCard label="MUST DO" accent="#FFEE00">
               {result.mustDo.map((s, i) => <Bullet key={i} color="#FFEE00" text={s} />)}
-            </div>
+            </RCard>
           )}
           {result.mustAvoid?.length > 0 && (
-            <div style={{ ...S.card, margin: 0 }}>
-              <div style={{ ...S.secLabel, color: '#FF5555' }}>AVOID</div>
+            <RCard label="AVOID" accent="#FF5555">
               {result.mustAvoid.map((s, i) => <Bullet key={i} color="#FF5555" text={s} />)}
-            </div>
+            </RCard>
           )}
         </div>
       )}
@@ -233,9 +444,7 @@ function RoutineResult({ result }) {
 
 // ─── 레퍼런스 분석 결과 ───────────────────────────────────────────────────────
 function RefResult({ result }) {
-  if (result.raw) {
-    return <div style={{ ...S.card, marginTop: 24 }}><p style={bodyTxt}>{result.raw}</p></div>
-  }
+  if (result.raw) return <div style={{ ...S.card, marginTop: 24 }}><p style={bodyTxt}>{result.raw}</p></div>
 
   const scoreColor = result.score >= 80 ? '#FFEE00' : result.score >= 60 ? '#F5F5F0' : '#FF5555'
 
@@ -252,19 +461,11 @@ function RefResult({ result }) {
         <div style={{ height: '100%', width: `${result.score}%`, background: scoreColor }} />
       </div>
 
-      {result.fit   && <RCard label="ACCOUNT FIT"   ><p style={bodyTxt}>{result.fit}</p></RCard>}
-      {result.tone  && <RCard label="TONE & MANNER"  ><p style={bodyTxt}>{result.tone}</p></RCard>}
-      {result.strengths?.length > 0 && (
-        <RCard label="STRENGTHS">
-          {result.strengths.map((s, i) => <Bullet key={i} color="#FFEE00" text={s} />)}
-        </RCard>
-      )}
-      {result.improvements?.length > 0 && (
-        <RCard label="IMPROVEMENTS">
-          {result.improvements.map((s, i) => <Bullet key={i} color="#0033FF" text={s} />)}
-        </RCard>
-      )}
-      {result.direction && <RCard label="DIRECTION"><p style={bodyTxt}>{result.direction}</p></RCard>}
+      {result.fit        && <RCard label="ACCOUNT FIT"   ><p style={bodyTxt}>{result.fit}</p></RCard>}
+      {result.tone       && <RCard label="TONE & MANNER"  ><p style={bodyTxt}>{result.tone}</p></RCard>}
+      {result.strengths?.length    > 0 && <RCard label="STRENGTHS"   >{result.strengths.map((s, i)    => <Bullet key={i} color="#FFEE00" text={s} />)}</RCard>}
+      {result.improvements?.length > 0 && <RCard label="IMPROVEMENTS">{result.improvements.map((s, i) => <Bullet key={i} color="#0033FF" text={s} />)}</RCard>}
+      {result.direction  && <RCard label="DIRECTION"><p style={bodyTxt}>{result.direction}</p></RCard>}
       {result.hashtags?.length > 0 && (
         <RCard label="HASHTAGS">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -278,10 +479,11 @@ function RefResult({ result }) {
   )
 }
 
-function RCard({ label, children }) {
+// ─── 유틸 컴포넌트 ────────────────────────────────────────────────────────────
+function RCard({ label, accent, children }) {
   return (
     <div style={{ ...S.card, marginBottom: 2 }}>
-      <div style={S.secLabel}>{label}</div>
+      <div style={{ ...S.secLabel, ...(accent ? { color: accent } : {}) }}>{label}</div>
       {children}
     </div>
   )
@@ -296,23 +498,51 @@ function Bullet({ color, text }) {
   )
 }
 
+function BigBtn({ onClick, disabled, loading, progress, label }) {
+  const active = !disabled && !loading
+  return (
+    <button
+      onClick={onClick}
+      disabled={!active}
+      style={{
+        width: '100%',
+        background: active ? '#FFEE00' : '#1A1A1A',
+        color: active ? '#0A0A0A' : 'rgba(255,255,255,0.18)',
+        fontFamily: 'Barlow Condensed',
+        fontWeight: 800,
+        fontSize: 18,
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        border: 'none',
+        padding: '18px 20px',
+        cursor: active ? 'pointer' : 'not-allowed',
+      }}
+    >
+      {loading ? (progress || '생성 중...') : label}
+    </button>
+  )
+}
+
 // ─── 메인 페이지 ─────────────────────────────────────────────────────────────
 export default function AnalyzePage() {
-  const [tab, setTab] = useState('routine')  // 'routine' | 'reference'
+  const [tab, setTab] = useState('routine')
   const [toast, setToast] = useState(null)
 
-  // 루틴 생성 상태
+  // 레퍼런스 보관함 상태
+  const [refs, setRefs] = useState(() => getConfirmedRefs())
+
+  // 루틴 상태
   const [routineLoading,  setRoutineLoading]  = useState(false)
   const [routineProgress, setRoutineProgress] = useState('')
   const [routineResult,   setRoutineResult]   = useState(null)
 
   // 레퍼런스 분석 상태
-  const [videoFile,    setVideoFile]    = useState(null)
-  const [textInput,    setTextInput]    = useState('')
-  const [dragging,     setDragging]     = useState(false)
-  const [refLoading,   setRefLoading]   = useState(false)
-  const [refProgress,  setRefProgress]  = useState('')
-  const [refResult,    setRefResult]    = useState(null)
+  const [videoFile,   setVideoFile]   = useState(null)
+  const [textInput,   setTextInput]   = useState('')
+  const [dragging,    setDragging]    = useState(false)
+  const [refLoading,  setRefLoading]  = useState(false)
+  const [refProgress, setRefProgress] = useState('')
+  const [refResult,   setRefResult]   = useState(null)
   const fileInputRef = useRef()
 
   const hasKey = !!localStorage.getItem('gemini_api_key')
@@ -325,11 +555,16 @@ export default function AnalyzePage() {
     setRoutineProgress('인스타그램 데이터 불러오는 중...')
 
     let igProfile = null, recentMedia = []
-    try { igProfile   = await fetchIGProfile() }  catch (_) {}
-    try { recentMedia = await fetchIGMedia(10) }  catch (_) {}
+    try { igProfile   = await fetchIGProfile() } catch (_) {}
+    try { recentMedia = await fetchIGMedia(10) } catch (_) {}
 
     try {
-      const data = await getWeeklyRoutine({ igProfile, recentMedia, onProgress: setRoutineProgress })
+      const data = await getWeeklyRoutine({
+        igProfile,
+        recentMedia,
+        confirmedRefs: refs,
+        onProgress: setRoutineProgress,
+      })
       setRoutineResult(data)
     } catch (e) {
       setToast({ message: e.message, type: 'error' })
@@ -338,7 +573,7 @@ export default function AnalyzePage() {
     setRoutineProgress('')
   }
 
-  // ── 레퍼런스 분석 ─────────────────────────────────────────────────────
+  // ── 레퍼런스 분석 ────────────────────────────────────────────────────────
   function onFileDrop(e) {
     e.preventDefault()
     setDragging(false)
@@ -393,17 +628,20 @@ export default function AnalyzePage() {
 
         {/* 탭 */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 20 }}>
-          <TabBtn label="루틴 생성"    active={tab === 'routine'}   onClick={() => setTab('routine')} />
+          <TabBtn label="루틴 생성"     active={tab === 'routine'}   onClick={() => setTab('routine')} />
           <TabBtn label="레퍼런스 분석" active={tab === 'reference'} onClick={() => setTab('reference')} />
         </div>
 
         {/* ── 루틴 생성 탭 ─────────────────────────────────────── */}
         {tab === 'routine' && (
           <div>
-            <div style={S.secLabel}>WEEKLY BRANDING ROUTINE</div>
-            <p style={{ ...S.hint, marginBottom: 20 }}>
-              최근 인스타그램 데이터와 계정 프로필을 바탕으로,<br />
-              이번 주 월~일 요일별 콘텐츠 루틴을 생성해드려요.
+            {/* 레퍼런스 보관함 */}
+            <ReferenceVault refs={refs} onChange={setRefs} />
+
+            <div style={{ ...S.secLabel, marginBottom: 6 }}>WEEKLY BRANDING ROUTINE</div>
+            <p style={{ ...S.hint, marginBottom: 16 }}>
+              인스타 데이터 + 컨펌 레퍼런스를 기반으로 이번 주<br />
+              월~일 요일별 실행 루틴을 생성해요.
             </p>
 
             <BigBtn
@@ -465,7 +703,6 @@ export default function AnalyzePage() {
               )}
             </div>
 
-            {/* 텍스트 */}
             <div style={{ marginBottom: 16 }}>
               <div style={S.secLabel}>CONCEPT / CAPTION</div>
               <textarea
@@ -485,7 +722,6 @@ export default function AnalyzePage() {
             />
 
             {!hasKey && <p style={{ ...S.hint, marginTop: 8 }}>설정(⚙)에서 Gemini API 키를 먼저 입력해주세요</p>}
-
             {refResult && <RefResult result={refResult} />}
           </div>
         )}
