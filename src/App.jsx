@@ -1,7 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import TabBar from './components/TabBar'
 import SettingsButton from './components/SettingsButton'
-import Dashboard     from './pages/Dashboard'
 import InstagramPage from './pages/InstagramPage'
 import YouTubePage   from './pages/YouTubePage'
 import AnalyzePage   from './pages/AnalyzePage'
@@ -14,8 +13,8 @@ export default function App() {
       <div style={{ paddingBottom: 80 }}>
         <SettingsButton />
         <Routes>
-          <Route path="/"          element={<Dashboard />} />
-          <Route path="/instagram" element={<InstagramPage />} />
+          <Route path="/"          element={<InstagramPage />} />
+          <Route path="/instagram" element={<Navigate to="/" replace />} />
           <Route path="/youtube"   element={<YouTubePage />} />
           <Route path="/analyze"   element={<AnalyzePage />} />
           <Route path="/report"    element={<ReportPage />} />

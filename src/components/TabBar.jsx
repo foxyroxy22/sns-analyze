@@ -1,11 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 
 const TABS = [
-  { path: '/',          label: '대시보드', icon: '◼' },
-  { path: '/instagram', label: 'INSTA',   icon: '◻' },
-  { path: '/youtube',   label: 'YT',      icon: '▷' },
-  { path: '/analyze',   label: '분석',    icon: '◈' },
-  { path: '/report',    label: '리포트',  icon: '≡' },
+  { path: '/',        label: 'INSTA',   icon: '◻' },
+  { path: '/youtube', label: 'YT',      icon: '▷' },
+  { path: '/analyze', label: '분석',    icon: '◈' },
+  { path: '/report',  label: '리포트',  icon: '≡' },
 ]
 
 export default function TabBar() {
