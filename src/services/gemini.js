@@ -74,12 +74,12 @@ async function waitForFileActive(fileName, key, maxWait = 60000) {
 
 async function callGemini(key, systemInstruction, userParts, jsonMode = true) {
   const payload = {
-    system_instruction: { parts: [{ text: systemInstruction }] },
+    systemInstruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: 'user', parts: userParts }],
     generationConfig: {
       temperature: 0.75,
       maxOutputTokens: 2048,
-      ...(jsonMode ? { response_mime_type: 'application/json' } : {}),
+      ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
     },
   }
 
