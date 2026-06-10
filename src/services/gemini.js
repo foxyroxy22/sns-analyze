@@ -1,4 +1,6 @@
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1'
+const GEMINI_BETA  = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_MODEL = 'gemini-1.5-flash'
 
 function apiKey() {
   return localStorage.getItem('gemini_api_key') || ''
@@ -36,7 +38,7 @@ function fileToBase64(file) {
 
 // Gemini Files API에 파일 업로드 (대용량 영상용)
 async function uploadFile(file, key) {
-  const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${key}`
+  const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${key}` // Files API는 v1beta 유지
   const metadata = { file: { display_name: file.name } }
   const boundary = 'boundary' + Math.floor(Math.random() * 1e9)
 
@@ -68,7 +70,7 @@ async function uploadFile(file, key) {
 async function waitForFileActive(fileName, key, maxWait = 60000) {
   const start = Date.now()
   while (Date.now() - start < maxWait) {
-    const res = await fetch(`${GEMINI_BASE}/files/${fileName.split('/').pop()}?key=${key}`)
+    const res = await fetch(`${GEMINI_BETA}/files/${fileName.split('/').pop()}?key=${key}`)
     const json = await res.json()
     if (json.state === 'ACTIVE') return json
     if (json.state === 'FAILED') throw new Error('FILE_PROCESSING_FAILED')
@@ -89,7 +91,7 @@ async function callGemini(key, systemInstruction, userParts, jsonMode = true) {
   }
 
   const res = await fetch(
-    `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${key}`,
+    `${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${key}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
   )
 
