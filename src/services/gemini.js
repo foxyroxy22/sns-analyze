@@ -135,13 +135,13 @@ ${profileText ? `\n[이 계정의 정체성과 방향성 — 반드시 기준점
     onProgress?.('영상 업로드 중...')
     if (videoFile.size <= 20 * 1024 * 1024) {
       const base64 = await fileToBase64(videoFile)
-      parts.push({ inline_data: { mime_type: videoFile.type, data: base64 } })
+      parts.push({ inlineData: { mimeType: videoFile.type, data: base64 } })
     } else {
       onProgress?.('대용량 영상 처리 중...')
       const uploaded = await uploadFile(videoFile, key)
       onProgress?.('영상 분석 준비 중...')
       const active = await waitForFileActive(uploaded.name, key)
-      parts.push({ file_data: { mime_type: videoFile.type, file_uri: active.uri } })
+      parts.push({ fileData: { mimeType: videoFile.type, fileUri: active.uri } })
     }
   }
 
