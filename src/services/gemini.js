@@ -3,7 +3,7 @@
  * POST https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=KEY
  */
 
-const ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent'
+const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 const UPLOAD   = 'https://generativelanguage.googleapis.com/upload/v1beta/files'
 const FILES    = 'https://generativelanguage.googleapis.com/v1beta/files'
 
