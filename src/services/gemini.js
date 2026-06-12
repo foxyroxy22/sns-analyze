@@ -130,6 +130,15 @@ async function callGemini(systemText, userParts) {
   return text
 }
 
+function extractJson(raw) {
+  const m = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (m) return m[1].trim()
+  const a = raw.indexOf('{')
+  const b = raw.lastIndexOf('}')
+  if (a !== -1 && b !== -1) return raw.slice(a, b + 1)
+  return raw
+}
+
 // ─── 레퍼런스 분석 ────────────────────────────────────────────────────────────
 
 export async function analyzeContent({ videoFile, textInput, onProgress }) {
@@ -167,7 +176,7 @@ ${profileText ? `\n[이 계정의 정체성과 방향성]\n${profileText}\n` : '
 
   onProgress?.('Gemini 분석 중...')
   const raw = await callGemini(systemText, parts)
-  try { return JSON.parse(raw) } catch { return { raw } }
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
 
 // ─── 게시물 성과 분석 ─────────────────────────────────────────────────────────
@@ -202,7 +211,7 @@ ${profileText ? `\n[이 계정의 정체성]\n${profileText}\n` : ''}
 ${commentsStr}`
 
   const raw = await callGemini(systemText, [{ text: userText }])
-  try { return JSON.parse(raw) } catch { return { raw } }
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
 
 // ─── 주간 루틴 생성 ───────────────────────────────────────────────────────────
@@ -262,5 +271,5 @@ ${refsText}`
 
   onProgress?.('Gemini 루틴 생성 중...')
   const raw = await callGemini(systemText, [{ text: userText }])
-  try { return JSON.parse(raw) } catch { return { raw } }
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
