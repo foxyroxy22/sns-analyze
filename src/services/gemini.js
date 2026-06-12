@@ -104,11 +104,6 @@ async function callGemini(fullPrompt, extraParts = []) {
 
   const body = JSON.stringify({
     contents: [{ parts }],
-    generationConfig: {
-      temperature: 0.75,
-      maxOutputTokens: 2048,
-      responseMimeType: 'application/json',
-    },
   })
 
   const res = await fetch(`${ENDPOINT}?key=${key}`, {
@@ -130,6 +125,15 @@ async function callGemini(fullPrompt, extraParts = []) {
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text
   if (!text) throw new Error('EMPTY_RESPONSE')
   return text
+}
+
+function extractJson(raw) {
+  const m = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (m) return m[1].trim()
+  const a = raw.indexOf('{')
+  const b = raw.lastIndexOf('}')
+  if (a !== -1 && b !== -1) return raw.slice(a, b + 1)
+  return raw
 }
 
 // ─── 레퍼런스 분석 ────────────────────────────────────────────────────────────
@@ -170,7 +174,7 @@ ${profileText ? `\n[이 계정의 정체성]\n${profileText}\n` : ''}
 
   onProgress?.('Gemini 분석 중...')
   const raw = await callGemini(prompt, extraParts)
-  try { return JSON.parse(raw) } catch { return { raw } }
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
 
 // ─── 게시물 성과 분석 ─────────────────────────────────────────────────────────
@@ -204,7 +208,7 @@ ${profileText ? `[계정 정체성]\n${profileText}\n` : ''}
 ${commentsStr}`
 
   const raw = await callGemini(prompt)
-  try { return JSON.parse(raw) } catch { return { raw } }
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
 
 // ─── 주간 루틴 생성 ───────────────────────────────────────────────────────────
@@ -264,5 +268,5 @@ ${refsText}`
 
   onProgress?.('Gemini 루틴 생성 중...')
   const raw = await callGemini(prompt)
-  try { return JSON.parse(raw) } catch { return { raw } }
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
