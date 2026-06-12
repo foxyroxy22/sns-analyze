@@ -121,6 +121,7 @@ async function callGemini(systemPromptText, userParts) {
   const generationConfig = {
     temperature: 0.75,
     maxOutputTokens: 2048,
+    responseMimeType: 'application/json',
   }
 
   const requestBody = {
