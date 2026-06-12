@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="ko">
   <head>
+    <script>
+      // GitHub Pages SPA 404 redirect 복원
+      (function(){var s=sessionStorage.getItem('spa_redirect');if(s){sessionStorage.removeItem('spa_redirect');var u=new URL(s);history.replaceState(null,'',u.pathname+u.search+u.hash);}})();
+    </script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

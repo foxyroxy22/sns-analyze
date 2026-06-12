@@ -1,0 +1,12 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // GitHub Pages SPA 404 트릭 — 현재 URL을 sessionStorage에 저장 후 index.html로 리다이렉트
+    sessionStorage.setItem('spa_redirect', location.href);
+    location.replace('/sns-analyze/');
+  </script>
+</head>
+<body></body>
+</html>
