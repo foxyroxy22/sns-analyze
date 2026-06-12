@@ -1,12 +1,19 @@
 /**
  * Google Generative AI REST API v1
- * Endpoint : https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent
- * Payload  : { systemInstruction, contents, generationConfig: { responseMimeType } }
+ * POST https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=KEY
+ *
+ * 최상위 바디 구조 (루트 레벨 필드 3개):
+ *   systemInstruction  → { parts: [{ text: "..." }] }        ← 루트 레벨
+ *   contents           → [{ role: "user", parts: [...] }]    ← 루트 레벨
+ *   generationConfig   → { temperature, maxOutputTokens }    ← 루트 레벨
+ *
+ * ※ responseMimeType 는 v1beta 전용 — v1 에서는 사용하지 않음.
+ *    JSON 응답은 프롬프트로 지시하고 JSON.parse() 로 파싱.
  */
 
-const API_BASE  = 'https://generativelanguage.googleapis.com/v1'
-const API_BETA  = 'https://generativelanguage.googleapis.com/v1beta'
-const MODEL     = 'gemini-1.5-flash'
+const API_V1   = 'https://generativelanguage.googleapis.com/v1'
+const API_BETA = 'https://generativelanguage.googleapis.com/v1beta'
+const MODEL    = 'gemini-1.5-flash'
 
 // ─── localStorage 헬퍼 ───────────────────────────────────────────────────────
 
@@ -52,15 +59,15 @@ function fileToBase64(file) {
 
 async function uploadFileToBeta(file, key) {
   const url      = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${key}`
-  const meta     = { file: { display_name: file.name } }
+  const meta     = { file: { displayName: file.name } }
   const boundary = 'b' + Math.floor(Math.random() * 1e12)
 
   const metaBytes = new TextEncoder().encode(
     `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}`
     + `\r\n--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`
   )
-  const endBytes  = new TextEncoder().encode(`\r\n--${boundary}--`)
-  const fileBuf   = await file.arrayBuffer()
+  const endBytes = new TextEncoder().encode(`\r\n--${boundary}--`)
+  const fileBuf  = await file.arrayBuffer()
 
   const body = new Uint8Array(metaBytes.byteLength + fileBuf.byteLength + endBytes.byteLength)
   body.set(metaBytes, 0)
@@ -83,41 +90,48 @@ async function waitActive(fileName, key, maxMs = 60000) {
   const start = Date.now()
   while (Date.now() - start < maxMs) {
     const res  = await fetch(`${API_BETA}/files/${fileName.split('/').pop()}?key=${key}`)
-    const json = await res.json()
-    if (json.state === 'ACTIVE') return json
-    if (json.state === 'FAILED') throw new Error('FILE_PROCESSING_FAILED')
+    const data = await res.json()
+    if (data.state === 'ACTIVE') return data
+    if (data.state === 'FAILED') throw new Error('FILE_PROCESSING_FAILED')
     await new Promise(r => setTimeout(r, 2000))
   }
   throw new Error('FILE_UPLOAD_TIMEOUT')
 }
 
-// ─── 핵심 Gemini 호출 함수 ───────────────────────────────────────────────────
-// Google v1 REST API 규격:
-//   systemInstruction   : { parts: [{ text: "..." }] }
-//   generationConfig    : { responseMimeType: "application/json" }
-async function callGemini(systemPromptText, userParts, jsonMode = true) {
+// ─── 핵심 호출 함수 ───────────────────────────────────────────────────────────
+// v1 API 는 responseMimeType 미지원 → JSON 지시는 프롬프트로, 파싱은 호출부에서 처리.
+async function callGemini(systemPromptText, userParts) {
   const key = getKey()
   if (!key) throw new Error('NO_GEMINI_KEY')
 
-  const requestBody = {
-    systemInstruction: {
-      parts: [{ text: systemPromptText }],
-    },
-    contents: [
-      {
-        role: 'user',
-        parts: userParts,
-      },
-    ],
-    generationConfig: {
-      temperature: 0.75,
-      maxOutputTokens: 2048,
-      ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
-    },
+  // ──────────────────────────────────────────────────────────────
+  // 바디 구조 (루트 레벨 3개 — 절대 중첩 금지)
+  // ──────────────────────────────────────────────────────────────
+  const systemInstruction = {
+    parts: [{ text: systemPromptText }],
   }
 
+  const contents = [
+    {
+      role: 'user',
+      parts: userParts,
+    },
+  ]
+
+  const generationConfig = {
+    temperature: 0.75,
+    maxOutputTokens: 2048,
+  }
+
+  const requestBody = {
+    systemInstruction,
+    contents,
+    generationConfig,
+  }
+  // ──────────────────────────────────────────────────────────────
+
   const res = await fetch(
-    `${API_BASE}/models/${MODEL}:generateContent?key=${key}`,
+    `${API_V1}/models/${MODEL}:generateContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,7 +154,17 @@ async function callGemini(systemPromptText, userParts, jsonMode = true) {
   return text
 }
 
-// ─── 공개 API 함수들 ──────────────────────────────────────────────────────────
+// JSON 블록 추출 (마크다운 코드펜스 대응)
+function extractJson(raw) {
+  const m = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (m) return m[1].trim()
+  const a = raw.indexOf('{')
+  const b = raw.lastIndexOf('}')
+  if (a !== -1 && b !== -1) return raw.slice(a, b + 1)
+  return raw
+}
+
+// ─── 공개 API ─────────────────────────────────────────────────────────────────
 
 /**
  * 레퍼런스 콘텐츠 분석 (영상 or 텍스트)
@@ -157,7 +181,7 @@ ${profileText ? `\n[이 계정의 정체성과 방향성 — 판단의 기준점
   ? ' 위 계정 방향성과 결이 맞는지 냉정하게 비교하고 구체적으로 피드백해줘.'
   : ' 콘텐츠의 톤앤매너와 브랜딩 방향성을 분석하고 개선점을 제안해줘.'}
 
-결과는 반드시 아래 JSON 형식으로만 반환해:
+반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 금지):
 {
   "overall": "전체 평가 한 줄",
   "score": 75,
@@ -190,16 +214,12 @@ ${profileText ? `\n[이 계정의 정체성과 방향성 — 판단의 기준점
   if (textInput?.trim()) {
     parts.push({ text: `\n사용자 입력:\n${textInput.trim()}` })
   }
-  parts.push({ text: '\nJSON 형식으로 분석 결과를 반환해줘.' })
+  parts.push({ text: '\nJSON 형식으로만 분석 결과를 반환해줘.' })
 
   onProgress?.('Gemini 분석 중...')
 
-  const raw = await callGemini(systemPrompt, parts, true)
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return { raw }
-  }
+  const raw = await callGemini(systemPrompt, parts)
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
 
 /**
@@ -225,7 +245,7 @@ export async function analyzePost({ post, comments, onProgress }) {
 ${profileText ? `\n[이 계정의 정체성]\n${profileText}\n` : ''}
 아래 게시물 데이터를 분석해서 실용적이고 구체적인 피드백을 줘. 칭찬보다 개선점과 인사이트에 집중해.
 
-결과는 반드시 아래 JSON 형식으로만 반환해:
+반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 금지):
 {
   "verdict": "이 게시물 한 줄 판정",
   "performanceScore": 72,
@@ -246,14 +266,10 @@ ${captionTxt}
 [댓글 목록 (최대 20개)]
 ${commentsStr}
 
-위 데이터를 분석해서 JSON으로 반환해줘.`
+위 데이터를 분석해서 JSON으로만 반환해줘.`
 
-  const raw = await callGemini(systemPrompt, [{ text: userText }], true)
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return { raw }
-  }
+  const raw = await callGemini(systemPrompt, [{ text: userText }])
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
 
 /**
@@ -296,7 +312,7 @@ export async function getWeeklyRoutine({ igProfile, recentMedia, confirmedRefs, 
 - 정보성·설명형 카드뉴스 절대 금지.
 - "와, 이 사람 미감 좋다, 힙하다" 시각적 감탄이 나오는 비주얼 캐러셀을 반드시 주 1회 이상 포함.
 - 사용자의 컨펌 레퍼런스 무드(키치, 비비드, 그래픽 오브제, 별, 감각적 타이포 등)를 기반으로 매칭 제안.
-- 타입은 반드시 "비주얼캐러셀"로 표기.
+- type 필드는 반드시 "비주얼캐러셀"로 표기.
 
 [규칙 ②] 회사 생활 브이로그 릴스 화면/자막 분리 출력
 - 릴스는 반드시 screen 필드와 caption 필드를 분리해서 작성.
@@ -305,7 +321,7 @@ export async function getWeeklyRoutine({ igProfile, recentMedia, confirmedRefs, 
 
 추상적인 말 금지. 당장 실행 가능한 구체적 행동만.
 
-결과는 반드시 아래 JSON 형식으로만 반환해:
+반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 금지):
 {
   "weekSummary": "이번 주 계정 상태 총평 (2문장)",
   "weekTheme": "이번 주 통일 테마 한 줄",
@@ -336,15 +352,11 @@ ${mediaText}
 [컨펌된 레퍼런스 보관함]
 ${refsText}
 
-위 데이터로 이번 주 요일별 루틴을 JSON으로 만들어줘.
+위 데이터로 이번 주 요일별 루틴을 JSON으로만 만들어줘.
 규칙①(비주얼 캐러셀 주1회)과 규칙②(릴스 화면/자막 분리)를 반드시 지켜줘.`
 
   onProgress?.('Gemini 루틴 생성 중...')
 
-  const raw = await callGemini(systemPrompt, [{ text: userText }], true)
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return { raw }
-  }
+  const raw = await callGemini(systemPrompt, [{ text: userText }])
+  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
 }
