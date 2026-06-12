@@ -1,43 +1,36 @@
 /**
- * Google Generative AI REST API v1
- * POST https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=KEY
+ * Gemini 1.5 Flash — v1beta REST API
  *
- * 최상위 바디 구조 (루트 레벨 필드 3개):
- *   systemInstruction  → { parts: [{ text: "..." }] }        ← 루트 레벨
- *   contents           → [{ role: "user", parts: [...] }]    ← 루트 레벨
- *   generationConfig   → { temperature, maxOutputTokens }    ← 루트 레벨
+ * URL  : https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=KEY
+ * Body : { systemInstruction, contents, generationConfig: { responseMimeType } }
  *
- * ※ responseMimeType 는 v1beta 전용 — v1 에서는 사용하지 않음.
- *    JSON 응답은 프롬프트로 지시하고 JSON.parse() 로 파싱.
+ * ※ Google REST API 는 JSON body 필드명을 camelCase 로 받음 (snake_case 는 "unknown name" 에러 발생)
  */
 
-const API_V1   = 'https://generativelanguage.googleapis.com/v1'
-const API_BETA = 'https://generativelanguage.googleapis.com/v1beta'
-const MODEL    = 'gemini-1.5-flash'
+const BETA  = 'https://generativelanguage.googleapis.com/v1beta'
+const MODEL = 'gemini-1.5-flash'
 
-// ─── localStorage 헬퍼 ───────────────────────────────────────────────────────
+// ─── localStorage ────────────────────────────────────────────────────────────
 
 function getKey() {
   return localStorage.getItem('gemini_api_key') || ''
 }
 
 export function getAccountProfile() {
-  try {
-    return JSON.parse(localStorage.getItem('account_profile') || '{}')
-  } catch {
-    return {}
-  }
+  try { return JSON.parse(localStorage.getItem('account_profile') || '{}') }
+  catch { return {} }
 }
 
 export function getConfirmedRefs() {
-  try { return JSON.parse(localStorage.getItem('confirmed_refs') || '[]') } catch { return [] }
+  try { return JSON.parse(localStorage.getItem('confirmed_refs') || '[]') }
+  catch { return [] }
 }
 
 export function saveConfirmedRefs(refs) {
   localStorage.setItem('confirmed_refs', JSON.stringify(refs))
 }
 
-// ─── 내부 유틸 ───────────────────────────────────────────────────────────────
+// ─── 유틸 ────────────────────────────────────────────────────────────────────
 
 function profileToText(p) {
   if (!p || (!p.concept && !p.target && !p.visual)) return null
@@ -57,7 +50,7 @@ function fileToBase64(file) {
   })
 }
 
-async function uploadFileToBeta(file, key) {
+async function uploadFile(file, key) {
   const url      = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${key}`
   const meta     = { file: { displayName: file.name } }
   const boundary = 'b' + Math.floor(Math.random() * 1e12)
@@ -89,7 +82,7 @@ async function uploadFileToBeta(file, key) {
 async function waitActive(fileName, key, maxMs = 60000) {
   const start = Date.now()
   while (Date.now() - start < maxMs) {
-    const res  = await fetch(`${API_BETA}/files/${fileName.split('/').pop()}?key=${key}`)
+    const res  = await fetch(`${BETA}/files/${fileName.split('/').pop()}?key=${key}`)
     const data = await res.json()
     if (data.state === 'ACTIVE') return data
     if (data.state === 'FAILED') throw new Error('FILE_PROCESSING_FAILED')
@@ -99,45 +92,30 @@ async function waitActive(fileName, key, maxMs = 60000) {
 }
 
 // ─── 핵심 호출 함수 ───────────────────────────────────────────────────────────
-// v1 API 는 responseMimeType 미지원 → JSON 지시는 프롬프트로, 파싱은 호출부에서 처리.
-async function callGemini(systemPromptText, userParts) {
+async function callGemini(systemText, userParts) {
   const key = getKey()
   if (!key) throw new Error('NO_GEMINI_KEY')
 
-  // ──────────────────────────────────────────────────────────────
-  // 바디 구조 (루트 레벨 3개 — 절대 중첩 금지)
-  // ──────────────────────────────────────────────────────────────
-  const systemInstruction = {
-    parts: [{ text: systemPromptText }],
-  }
-
-  const contents = [
-    {
-      role: 'user',
-      parts: userParts,
+  const body = JSON.stringify({
+    systemInstruction: {
+      parts: [{ text: systemText }],
     },
-  ]
-
-  const generationConfig = {
-    temperature: 0.75,
-    maxOutputTokens: 2048,
-    responseMimeType: 'application/json',
-  }
-
-  const requestBody = {
-    systemInstruction,
-    contents,
-    generationConfig,
-  }
-  // ──────────────────────────────────────────────────────────────
+    contents: [
+      {
+        role: 'user',
+        parts: userParts,
+      },
+    ],
+    generationConfig: {
+      temperature: 0.75,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+    },
+  })
 
   const res = await fetch(
-    `${API_V1}/models/${MODEL}:generateContent?key=${key}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    }
+    `${BETA}/models/${MODEL}:generateContent?key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
   )
 
   if (!res.ok) {
@@ -155,85 +133,53 @@ async function callGemini(systemPromptText, userParts) {
   return text
 }
 
-// JSON 블록 추출 (마크다운 코드펜스 대응)
-function extractJson(raw) {
-  const m = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (m) return m[1].trim()
-  const a = raw.indexOf('{')
-  const b = raw.lastIndexOf('}')
-  if (a !== -1 && b !== -1) return raw.slice(a, b + 1)
-  return raw
-}
-
-// ─── 공개 API ─────────────────────────────────────────────────────────────────
-
-/**
- * 레퍼런스 콘텐츠 분석 (영상 or 텍스트)
- */
+// ─── 레퍼런스 분석 ────────────────────────────────────────────────────────────
 export async function analyzeContent({ videoFile, textInput, onProgress }) {
   if (!videoFile && !textInput?.trim()) throw new Error('NO_INPUT')
 
-  const profile     = getAccountProfile()
-  const profileText = profileToText(profile)
+  const profileText = profileToText(getAccountProfile())
 
-  const systemPrompt = `너는 인스타그램 전문 BX(브랜드 경험) 디자이너이자 트렌디한 마케터야.
-${profileText ? `\n[이 계정의 정체성과 방향성 — 판단의 기준점]\n${profileText}\n` : ''}
+  const systemText = `너는 인스타그램 전문 BX(브랜드 경험) 디자이너이자 트렌디한 마케터야.
+${profileText ? `\n[이 계정의 정체성과 방향성]\n${profileText}\n` : ''}
 사용자가 올린 레퍼런스를 분석해서,${profileText
   ? ' 위 계정 방향성과 결이 맞는지 냉정하게 비교하고 구체적으로 피드백해줘.'
   : ' 콘텐츠의 톤앤매너와 브랜딩 방향성을 분석하고 개선점을 제안해줘.'}
 
-반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 금지):
-{
-  "overall": "전체 평가 한 줄",
-  "score": 75,
-  "fit": "계정 방향성과의 결 일치도 (2-3문장)",
-  "tone": "톤앤매너 분석 (2-3문장)",
-  "strengths": ["강점1", "강점2", "강점3"],
-  "improvements": ["개선점1", "개선점2", "개선점3"],
-  "direction": "적용 가능한 구체적 방향성 (3-4문장)",
-  "hashtags": ["#해시태그1", "#해시태그2", "#해시태그3", "#해시태그4", "#해시태그5"]
-}`
+아래 JSON 스키마로만 응답해:
+{"overall":"전체 평가 한 줄","score":75,"fit":"계정 방향성 일치도 2-3문장","tone":"톤앤매너 분석 2-3문장","strengths":["강점1","강점2","강점3"],"improvements":["개선점1","개선점2","개선점3"],"direction":"구체적 방향성 3-4문장","hashtags":["#태그1","#태그2","#태그3","#태그4","#태그5"]}`
 
   const parts = []
+  const key   = getKey()
 
   if (videoFile) {
     onProgress?.('영상 업로드 중...')
-    const key = getKey()
-
     if (videoFile.size <= 20 * 1024 * 1024) {
       const b64 = await fileToBase64(videoFile)
       parts.push({ inlineData: { mimeType: videoFile.type, data: b64 } })
     } else {
       onProgress?.('대용량 영상 처리 중...')
-      const uploaded = await uploadFileToBeta(videoFile, key)
+      const uploaded = await uploadFile(videoFile, key)
       onProgress?.('영상 분석 준비 중...')
       const active = await waitActive(uploaded.name, key)
       parts.push({ fileData: { mimeType: videoFile.type, fileUri: active.uri } })
     }
   }
 
-  if (textInput?.trim()) {
-    parts.push({ text: `\n사용자 입력:\n${textInput.trim()}` })
-  }
-  parts.push({ text: '\nJSON 형식으로만 분석 결과를 반환해줘.' })
+  if (textInput?.trim()) parts.push({ text: `사용자 입력:\n${textInput.trim()}` })
 
   onProgress?.('Gemini 분석 중...')
-
-  const raw = await callGemini(systemPrompt, parts)
-  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
+  const raw = await callGemini(systemText, parts)
+  try { return JSON.parse(raw) } catch { return { raw } }
 }
 
-/**
- * 개별 게시물 AI 성과 분석 (텍스트 기반)
- */
+// ─── 게시물 성과 분석 ─────────────────────────────────────────────────────────
 export async function analyzePost({ post, comments, onProgress }) {
-  const profile     = getAccountProfile()
-  const profileText = profileToText(profile)
+  const profileText = profileToText(getAccountProfile())
 
   onProgress?.('Gemini 분석 중...')
 
   const date       = post.timestamp ? new Date(post.timestamp).toLocaleDateString('ko-KR') : '날짜 없음'
-  const captionTxt = post.caption   || '(캡션 없음)'
+  const captionTxt = post.caption        || '(캡션 없음)'
   const likes      = post.like_count     ?? '-'
   const cmtCount   = post.comments_count ?? '-'
   const mediaType  = post.media_type     || 'POST'
@@ -242,122 +188,80 @@ export async function analyzePost({ post, comments, onProgress }) {
     ? comments.slice(0, 20).map((c, i) => `${i + 1}. ${c.text || c}`).join('\n')
     : '(댓글 데이터 없음)'
 
-  const systemPrompt = `너는 인스타그램 전문 BX 디자이너이자 냉정한 콘텐츠 전략가야.
+  const systemText = `너는 인스타그램 전문 BX 디자이너이자 냉정한 콘텐츠 전략가야.
 ${profileText ? `\n[이 계정의 정체성]\n${profileText}\n` : ''}
 아래 게시물 데이터를 분석해서 실용적이고 구체적인 피드백을 줘. 칭찬보다 개선점과 인사이트에 집중해.
 
-반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 금지):
-{
-  "verdict": "이 게시물 한 줄 판정",
-  "performanceScore": 72,
-  "whyItWorked": "반응이 좋았던 이유 또는 아쉬웠던 이유 (2-3문장)",
-  "brandFit": "계정 아이덴티티와의 결 일치도 (2문장)",
-  "audienceInsight": "댓글 민심 핵심 요약 (2-3문장)",
-  "doNextTime": ["다음엔 이렇게1", "다음엔 이렇게2", "다음엔 이렇게3"]
-}`
+아래 JSON 스키마로만 응답해:
+{"verdict":"게시물 한 줄 판정","performanceScore":72,"whyItWorked":"2-3문장","brandFit":"2문장","audienceInsight":"2-3문장","doNextTime":["다음엔1","다음엔2","다음엔3"]}`
 
   const userText = `[게시물 정보]
-유형: ${mediaType}
-날짜: ${date}
-좋아요: ${likes}
-댓글 수: ${cmtCount}
-캡션:
-${captionTxt}
+유형: ${mediaType} / 날짜: ${date} / 좋아요: ${likes} / 댓글: ${cmtCount}
+캡션: ${captionTxt}
 
-[댓글 목록 (최대 20개)]
-${commentsStr}
+[댓글 (최대 20개)]
+${commentsStr}`
 
-위 데이터를 분석해서 JSON으로만 반환해줘.`
-
-  const raw = await callGemini(systemPrompt, [{ text: userText }])
-  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
+  const raw = await callGemini(systemText, [{ text: userText }])
+  try { return JSON.parse(raw) } catch { return { raw } }
 }
 
-/**
- * 주간 브랜딩 루틴 생성
- */
+// ─── 주간 루틴 생성 ───────────────────────────────────────────────────────────
 export async function getWeeklyRoutine({ igProfile, recentMedia, confirmedRefs, onProgress }) {
-  const profile     = getAccountProfile()
-  const profileText = profileToText(profile)
+  const profileText = profileToText(getAccountProfile())
 
   onProgress?.('데이터 정리 중...')
-
-  let mediaText = '(인스타그램 데이터 없음)'
-  if (recentMedia?.length) {
-    mediaText = recentMedia.slice(0, 10).map((m, i) => {
-      const d = m.timestamp ? new Date(m.timestamp).toLocaleDateString('ko-KR') : '날짜 없음'
-      const c = m.caption   ? m.caption.slice(0, 80) + (m.caption.length > 80 ? '…' : '') : '(캡션 없음)'
-      return `${i + 1}. [${m.media_type || 'POST'}] ${d} | 좋아요: ${m.like_count ?? '-'} | 댓글: ${m.comments_count ?? '-'} | ${c}`
-    }).join('\n')
-  }
 
   const igSummary = igProfile
     ? `팔로워: ${igProfile.followers_count ?? '-'} / 게시물 수: ${igProfile.media_count ?? '-'}`
     : '(계정 데이터 없음)'
 
-  let refsText = '(저장된 레퍼런스 없음)'
-  if (confirmedRefs?.length) {
-    refsText = confirmedRefs.map((r, i) => {
-      const lines = [`${i + 1}. ${r.memo || '(메모 없음)'}`]
-      if (r.url) lines.push(`   링크: ${r.url}`)
-      return lines.join('\n')
-    }).join('\n')
-  }
+  const mediaText = recentMedia?.length
+    ? recentMedia.slice(0, 10).map((m, i) => {
+        const d = m.timestamp ? new Date(m.timestamp).toLocaleDateString('ko-KR') : '날짜 없음'
+        const c = m.caption   ? m.caption.slice(0, 80) + (m.caption.length > 80 ? '…' : '') : '(캡션 없음)'
+        return `${i + 1}. [${m.media_type || 'POST'}] ${d} | 좋아요: ${m.like_count ?? '-'} | 댓글: ${m.comments_count ?? '-'} | ${c}`
+      }).join('\n')
+    : '(인스타그램 데이터 없음)'
 
-  const systemPrompt = `너는 인스타그램 전문 BX 디자이너이자 실행력 있는 콘텐츠 코치야.
-사용자의 계정 데이터와 컨펌된 레퍼런스를 바탕으로, 이번 주 월~일 7일간 즉시 실행 가능한 요일별 콘텐츠 루틴을 만들어줘.
+  const refsText = confirmedRefs?.length
+    ? confirmedRefs.map((r, i) => {
+        const lines = [`${i + 1}. ${r.memo || '(메모 없음)'}`]
+        if (r.url) lines.push(`   링크: ${r.url}`)
+        return lines.join('\n')
+      }).join('\n')
+    : '(저장된 레퍼런스 없음)'
 
-━━━ 반드시 지켜야 할 2가지 핵심 규칙 ━━━
+  const systemText = `너는 인스타그램 전문 BX 디자이너이자 실행력 있는 콘텐츠 코치야.
+사용자의 계정 데이터와 컨펌된 레퍼런스를 바탕으로 이번 주 월~일 7일 즉시 실행 가능한 루틴을 만들어줘.
 
-[규칙 ①] 미감 중심 비주얼 캐러셀 주 1회 필수 포함
-- 정보성·설명형 카드뉴스 절대 금지.
-- "와, 이 사람 미감 좋다, 힙하다" 시각적 감탄이 나오는 비주얼 캐러셀을 반드시 주 1회 이상 포함.
-- 사용자의 컨펌 레퍼런스 무드(키치, 비비드, 그래픽 오브제, 별, 감각적 타이포 등)를 기반으로 매칭 제안.
-- type 필드는 반드시 "비주얼캐러셀"로 표기.
+[규칙 ①] 미감 중심 비주얼 캐러셀 주 1회 필수
+- 정보성 카드뉴스 절대 금지. "이 사람 미감 좋다, 힙하다" 시각적 감탄 유발.
+- 레퍼런스 무드(키치, 비비드, 그래픽 오브제, 별, 감각적 타이포) 기반 제안.
+- type 필드 반드시 "비주얼캐러셀"로 표기.
 
-[규칙 ②] 회사 생활 브이로그 릴스 화면/자막 분리 출력
-- 릴스는 반드시 screen 필드와 caption 필드를 분리해서 작성.
+[규칙 ②] 릴스 화면/자막 반드시 분리
 - screen: 출근·작업·회사 일상·디자인 업무 브이로그 장면
-- caption: 화면 설명 금지. 디자이너의 진솔한 생각·브랜딩 인사이트·고민·마인드셋을 요즘 인스타 트렌드 스타일로.
+- caption: 화면 설명 금지. 디자이너 진솔한 생각·브랜딩 인사이트·마인드셋 (인스타 트렌드 스타일)
 
-추상적인 말 금지. 당장 실행 가능한 구체적 행동만.
+아래 JSON 스키마로만 응답해:
+{"weekSummary":"2문장","weekTheme":"한 줄","routine":[{"day":"월","type":"릴스|비주얼캐러셀|스토리|피드|휴식","action":"구체적 행동","screen":"릴스만","caption":"릴스만","refMatch":"캐러셀만","tip":"팁 한 문장"}],"mustDo":["할것1","할것2"],"mustAvoid":["피할것1","피할것2"]}`
 
-반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 금지):
-{
-  "weekSummary": "이번 주 계정 상태 총평 (2문장)",
-  "weekTheme": "이번 주 통일 테마 한 줄",
-  "routine": [
-    {
-      "day": "월",
-      "type": "릴스 또는 비주얼캐러셀 또는 스토리 또는 피드 또는 휴식",
-      "action": "구체적 행동 설명",
-      "screen": "릴스일 때만 — 화면 소스 설명",
-      "caption": "릴스일 때만 — 자막/나레이션 컨셉",
-      "refMatch": "비주얼캐러셀일 때만 — 레퍼런스 매칭 포인트",
-      "tip": "실행 팁 한 문장"
-    }
-  ],
-  "mustDo": ["반드시 할 것1", "할 것2"],
-  "mustAvoid": ["절대 피할 것1", "피할 것2"]
-}`
-
-  const userText = `[내 계정 프로필]
+  const userText = `[계정 프로필]
 ${profileText || '(미설정)'}
 
-[현재 계정 현황]
+[계정 현황]
 ${igSummary}
 
 [최근 게시물 10개]
 ${mediaText}
 
-[컨펌된 레퍼런스 보관함]
+[컨펌된 레퍼런스]
 ${refsText}
 
-위 데이터로 이번 주 요일별 루틴을 JSON으로만 만들어줘.
-규칙①(비주얼 캐러셀 주1회)과 규칙②(릴스 화면/자막 분리)를 반드시 지켜줘.`
+규칙①(비주얼캐러셀 주1회)과 규칙②(릴스 화면/자막 분리)를 반드시 지켜서 JSON으로만 응답해줘.`
 
   onProgress?.('Gemini 루틴 생성 중...')
-
-  const raw = await callGemini(systemPrompt, [{ text: userText }])
-  try { return JSON.parse(extractJson(raw)) } catch { return { raw } }
+  const raw = await callGemini(systemText, [{ text: userText }])
+  try { return JSON.parse(raw) } catch { return { raw } }
 }
