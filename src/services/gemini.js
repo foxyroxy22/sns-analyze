@@ -7,6 +7,7 @@
  * ※ Google REST API 는 JSON body 필드명을 camelCase 로 받음 (snake_case 는 "unknown name" 에러 발생)
  */
 
+const V1    = 'https://generativelanguage.googleapis.com/v1'
 const BETA  = 'https://generativelanguage.googleapis.com/v1beta'
 const MODEL = 'gemini-1.5-flash'
 
@@ -114,7 +115,7 @@ async function callGemini(systemText, userParts) {
   })
 
   const res = await fetch(
-    `${BETA}/models/${MODEL}:generateContent?key=${key}`,
+    `${V1}/models/${MODEL}:generateContent?key=${key}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
   )
 
