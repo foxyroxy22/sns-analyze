@@ -246,7 +246,7 @@ export async function getWeeklyRoutine({ igProfile, recentMedia, confirmedRefs, 
 
 [출력 원칙]
 - 추상적 조언 절대 금지. "릴스를 올려보세요" 같은 말 금지.
-- 각 요일마다 '구체적인 촬영 주제 + 자막 첫 문장'까지 딱 찍어줘.
+- 각 요일마다 구체적인 촬영 주제 + 자막 첫 문장까지 딱 찍어줘.
 - 최근 게시물 중 반응 좋은 것(좋아요·댓글 높은 것)은 그 이유를 분석해서 이번 주에 비슷한 포맷으로 이어줘.
 - 최근에 올리지 않은 포맷(릴스/캐러셀/피드)이 있으면 이번 주에 채워줘.
 
@@ -255,9 +255,28 @@ export async function getWeeklyRoutine({ igProfile, recentMedia, confirmedRefs, 
 - type 필드: 반드시 "비주얼캐러셀"로 표기.
 - refMatch 필드: 보관함 레퍼런스 무드와 어떻게 매칭했는지 한 문장.
 
-[필수 규칙 ②] 릴스는 screen / caption 분리
+[필수 규칙 ②] 릴스는 screen / caption 반드시 분리
 - screen: 구체적 촬영 장면 (예: "점심시간 사무실 복도, 아이패드로 작업 중인 손 클로즈업")
-- caption: 그 화면에 올릴 자막 첫 문장 (예: "디자이너 3년차인데 아직도 이게 제일 어려워요")`
+- caption: 그 화면에 올릴 자막 첫 문장 (예: "디자이너 3년차인데 아직도 이게 제일 어려워요")
+
+[출력 JSON 스키마 — 필드명 절대 변경 금지]
+{
+  "weekSummary": "이번 주 계정 상태 총평 2문장",
+  "weekTheme": "이번 주 통일 테마 한 줄",
+  "routine": [
+    {
+      "day": "월 (한 글자만. 월화수목금토일)",
+      "type": "릴스 또는 비주얼캐러셀 또는 스토리 또는 피드 또는 휴식",
+      "action": "이 요일에 뭘 올릴지 한 문장 요약",
+      "screen": "릴스일 때만 — 구체적 촬영 장면",
+      "caption": "릴스일 때만 — 자막 첫 문장",
+      "refMatch": "비주얼캐러셀일 때만 — 레퍼런스 매칭 설명",
+      "tip": "실행 팁 한 문장"
+    }
+  ],
+  "mustDo": ["반드시 할 것 1", "반드시 할 것 2"],
+  "mustAvoid": ["절대 피할 것 1", "절대 피할 것 2"]
+}`
 
   const userText = `[계정 프로필]
 ${profileText || '(미설정)'}
